@@ -65,7 +65,6 @@ public class DnsServer {
                         public void handle(DatagramPacket packet) {
                             final SocketAddressImpl sender = (SocketAddressImpl) packet.sender();
 
-                            //DNSMessage dnsMessageIn;
                             try {
                                 final DNSMessage dnsMessageIn = DNSMessage.parse(packet.data().getBytes());
                                 final String mdn = extractMdn(dnsMessageIn);
@@ -82,23 +81,28 @@ public class DnsServer {
 
                                     @Override
                                     public void handle(AsyncResult<String> result) {
-                                        DNSMessage dnsMessageOut = buildDnsMessageOut(dnsMessageIn, result.result());
-
                                         try {
-                                            Buffer b = ServiceHelper.loadFactory(BufferFactory.class).buffer(dnsMessageOut.toArray());
-                                            socket.send(b, sender.port(), sender.host(), new Handler<AsyncResult<DatagramSocket>>() {
 
-                                                @Override
-                                                public void handle(AsyncResult<DatagramSocket> event) {
-                                                    // TODO Auto-generated method stub
+                                            DNSMessage dnsMessageOut = buildDnsMessageOut(dnsMessageIn, result.result());
 
-                                                }
-                                            });
-                                        } catch (IOException e) {
+                                            try {
+                                                Buffer b = ServiceHelper.loadFactory(BufferFactory.class).buffer(dnsMessageOut.toArray());
+                                                socket.send(b, sender.port(), sender.host(), new Handler<AsyncResult<DatagramSocket>>() {
+
+                                                    @Override
+                                                    public void handle(AsyncResult<DatagramSocket> event) {
+                                                        // TODO Auto-generated method stub
+
+                                                    }
+                                                });
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                            }
+                                        } catch (Exception e) {
                                             e.printStackTrace();
                                         }
-                                    }
 
+                                    }
                                 });
                             } catch (IOException e) {
                                 logger.error(e.getStackTrace().toString());

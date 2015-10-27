@@ -10,14 +10,13 @@ import de.measite.minidns.Record.TYPE;
 public class ATTRSTRING implements Data {
 
     private String spid;
-    
-    public ATTRSTRING() {
-    }
-    
+
+    public ATTRSTRING() {}
+
     public ATTRSTRING(String spid) {
         this.setSpid(spid);
     }
-    
+
 
     public void setSpid(String spid) {
         this.spid = spid;
@@ -27,6 +26,10 @@ public class ATTRSTRING implements Data {
             /* Can't happen, UTF-8 IS supported */
             throw new RuntimeException("UTF-8 not supported", e);
         }
+    }
+
+    public String getSpid() {
+        return spid;
     }
 
     @Override
@@ -55,9 +58,12 @@ public class ATTRSTRING implements Data {
 
     @Override
     public void parse(DataInputStream dis, byte[] data, int length)
-            throws IOException
-    {
-        throw new UnsupportedOperationException("Not implemented yet");
+            throws IOException {
+
+        byte[] b = new byte[length];
+        dis.readFully(b);
+        String result = new String(b);
+        spid = result.substring(6);
 
     }
 

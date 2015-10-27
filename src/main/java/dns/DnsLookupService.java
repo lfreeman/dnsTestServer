@@ -1,22 +1,171 @@
 package dns;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.ArrayUtils;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import de.measite.minidns.DNSMessage;
+import de.measite.minidns.Question;
+import de.measite.minidns.Record;
+import de.measite.minidns.Record.CLASS;
+import de.measite.minidns.Record.TYPE;
+import de.measite.minidns.record.ATTRSTRING;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.ServiceHelper;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.datagram.DatagramPacket;
+import io.vertx.core.datagram.DatagramSocket;
+import io.vertx.core.datagram.DatagramSocketOptions;
+import io.vertx.core.net.impl.SocketAddressImpl;
+import io.vertx.core.spi.BufferFactory;
 
 @Service
 public class DnsLookupService {
+    private static final Logger logger = LoggerFactory.getLogger(DnsLookupService.class);
+
+    private DB db;
+    private Map<String, Spid> spidMap;
     private static Map<String, String> mdnSpidMap;
 
+    private Vertx vertx;
+
+    @Autowired
+    public void setVertx(Vertx vertx) {
+        this.vertx = vertx;
+    }
+
+    public DnsLookupService() {
+        this.db = DBMaker.fileDB(new File("testdb"))
+                .closeOnJvmShutdown()
+                .transactionDisable()
+                .fileMmapEnableIfSupported()
+                .cacheHashTableEnable()
+                .make();
+
+        spidMap = db.treeMap("spid");
+        // db.commit();
+        // db.close();
+    }
+
     public String lookupSpid(String mdn) {
+        // long timeToLive = TimeUnit.DAYS.toMillis(1);
         String mdnPattern = mdn.substring(0, 8);
 
-        String spid = mdnSpidMap.get(mdnPattern);
-        if (spid == null) {
-            spid = "V047";
+        //Spid spid = spidMap.get(mdnPattern);
+        Spid spid = spidMap.get(mdn);
+
+        if (spid == null || spid.isExpired()) {
+            // String spidString =
+            lookupSpidRemote(mdn);
+            // spid = new Spid(mdnPattern, spidString, timeToLive);
+            // spidMap.put(mdnPattern, spid);
         }
-        return spid;
+
+        if (spid == null) {
+            return null;
+        }
+        return spid.getSpid();
+    }
+
+
+    public void lookupSpidRemote(String mdn) {
+
+        // Future future = Future.future();
+        DatagramSocket socket = vertx.createDatagramSocket(new DatagramSocketOptions());
+        socket.listen(6667, "0.0.0.0", new Handler<AsyncResult<DatagramSocket>>() {
+            public void handle(AsyncResult<DatagramSocket> asyncResult) {
+
+                if (asyncResult.succeeded()) {
+                    socket.handler(new Handler<DatagramPacket>() {
+
+                        @Override
+                        public void handle(DatagramPacket packet) {
+                            final SocketAddressImpl sender = (SocketAddressImpl) packet.sender();
+
+                            try {
+                                final DNSMessage dnsMessageIn = DNSMessage.parse(packet.data().getBytes());
+                                final String mdn = extractMdn(dnsMessageIn);
+                                ATTRSTRING data = (ATTRSTRING) (dnsMessageIn.getAnswers()[0].getPayload());
+                                String spidString = data.getSpid();
+                                // future.complete(spid);
+                                long timeToLive = TimeUnit.DAYS.toMillis(1);
+
+                                Spid spid = new Spid(mdn, spidString, timeToLive);
+                                spidMap.put(mdn, spid);
+                                socket.close();
+
+
+                            } catch (IOException e) {
+                                logger.error(e.getStackTrace().toString());
+                            }
+                        }
+                    });
+                } else {
+                    logger.error("Listen failed", asyncResult.cause());
+                }
+
+            };
+        });
+        DNSMessage dnsMessage = new DNSMessage();
+        String name = nameFromMdn(mdn);
+        Question q = new Question(name, TYPE.ANY, CLASS.IN);
+        dnsMessage.setQuestions(new Question[] {q});
+        dnsMessage.setAnswers(new Record[0]);
+        dnsMessage.setRecursionDesired(true);
+        dnsMessage.setId(1);
+
+        Buffer buffer;
+        try {
+            buffer = ServiceHelper.loadFactory(BufferFactory.class).buffer(dnsMessage.toArray());
+
+            socket.send(buffer, 1053, "10.69.4.240", new Handler<AsyncResult<DatagramSocket>>() {
+
+                @Override
+                public void handle(AsyncResult<DatagramSocket> asyncResult) {
+                    if (asyncResult.succeeded()) {
+                        socket.handler(new Handler<DatagramPacket>() {
+
+                            @Override
+                            public void handle(DatagramPacket packet) {}
+
+                        });
+                    }
+                }
+            });
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        // String spid = null;
+        // try {
+        // //future.wait();
+        // spid = future.result().toString();
+        // } catch (InterruptedException e) {
+        // // TODO Auto-generated catch block
+        // e.printStackTrace();
+        // }
+
+        //
+        // String spid = mdnSpidMap.get(mdn);
+        // if (spid == null) {
+        // spid = "V047";
+        // }
+        // socket.close();
+        // return spid;
     }
 
     static {
@@ -1221,5 +1370,34 @@ public class DnsLookupService {
         mdnSpidMap.put("11024643", "Y371");
         mdnSpidMap.put("97254480", "Z673");
 
+    }
+
+    private static Pattern mdnPattern = Pattern.compile("^([\\.\\d]+)\\.spid\\.e164\\.arpa$");
+
+    private String extractMdn(String name) {
+        String mdn = null;
+        Matcher m = mdnPattern.matcher(name);
+        if (m.matches()) {
+            mdn = m.group(1).replace(".", "");
+            mdn = new StringBuilder(mdn).reverse().toString();
+        }
+        return mdn;
+    }
+
+    private String extractMdn(DNSMessage dnsMessageIn) {
+        String name = dnsMessageIn.getQuestions()[0].getName();
+        return extractMdn(name);
+    }
+
+    private String nameFromMdn(String mdn) {
+        char[] charA = mdn.toCharArray();
+         ArrayUtils.reverse(charA);
+         StringBuilder sb = new StringBuilder();
+         for(char ch : charA) {
+             sb.append(ch);
+             sb.append(".");
+         }
+        sb.append("spid.e164.arpa.");
+        return sb.toString();
     }
 }
