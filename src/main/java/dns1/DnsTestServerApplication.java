@@ -1,6 +1,5 @@
 package dns1;
 
-import org.springframework.boot.SpringApplication;
 import org.springframework.context.annotation.Bean;
 
 import io.vertx.core.ServiceHelper;
@@ -10,9 +9,9 @@ import io.vertx.core.spi.VertxFactory;
 //@SpringBootApplication
 public class DnsTestServerApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(DnsTestServerApplication.class, args);
-    }
+//    public static void main(String[] args) {
+//        SpringApplication.run(DnsTestServerApplication.class, args);
+//    }
 
     @Bean
     public Vertx vertx() {

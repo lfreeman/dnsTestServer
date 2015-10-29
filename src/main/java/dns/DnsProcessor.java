@@ -1,10 +1,9 @@
-package simple;
+package dns;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -13,6 +12,10 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 
 import de.measite.minidns.DNSMessage;
 import de.measite.minidns.Question;
@@ -24,19 +27,17 @@ public class DnsProcessor implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(DnsProcessor.class);
 
     private final DatagramPacket packetIn;
-    private final DatagramSocket socket;
     private String remoteHost;
     private int remotePort;
 
     private final DatagramSocket responseListenerSocket;
     static private AtomicInteger messageId = new AtomicInteger(0);
-    final private Map<Integer, DatagramPacket> pendingQ;
+    final private Map<Integer, MyMessage> pendingQ;
 
 
-    public DnsProcessor(DatagramSocket socket, DatagramPacket packetIn, DatagramSocket responseListenerSocket, Map<Integer, DatagramPacket> pendingQ,
+    public DnsProcessor(DatagramPacket packetIn, DatagramSocket responseListenerSocket, Map<Integer, MyMessage> pendingQ,
             String remoteHost, int remotePort) {
         this.packetIn = packetIn;
-        this.socket = socket;
         this.responseListenerSocket = responseListenerSocket;
         this.pendingQ = pendingQ;
         this.remoteHost = remoteHost;
@@ -47,36 +48,10 @@ public class DnsProcessor implements Runnable {
     public void run() {
         try {
             DNSMessage dnsMessageIn = DNSMessage.parse(packetIn.getData());
-            String name = dnsMessageIn.getQuestions()[0].getName();
-            final String mdn = extractMdn(dnsMessageIn);
-            sendSpidLookup(mdn);
-//            String spid = lookupSpid(mdn);
-//
-//            Record.CLASS clazz = Record.CLASS.IN;
-//            Record.TYPE type = Record.TYPE.ATTR_STRING;
-//            ATTRSTRING payloadData = new ATTRSTRING(spid);
-//
-//            DNSMessage dnsMessageOut = new DNSMessage();
-//            dnsMessageOut.setQuestions(dnsMessageIn.getQuestions());
-//            dnsMessageOut.setId(dnsMessageIn.getId());
-//            dnsMessageOut.setQuery(true);
-//            dnsMessageOut.setRecursionDesired(true);
-//            dnsMessageOut.setRecursionAvailable(true);
-//
-//            Record answer = new Record(name, type, clazz, 60L, payloadData, false);
-//            dnsMessageOut.setAnswers(new Record[] {answer});
-//            byte[] buf = dnsMessageOut.toArray();
-//
-//            DatagramPacket packetOut = new DatagramPacket(buf, buf.length,
-//                    packetIn.getAddress(), packetIn.getPort());
-//
-//            socket.send(packetOut);
+            sendSpidLookup(dnsMessageIn);
         } catch (IOException e) {
             logger.error(e.getStackTrace().toString());
         }
-
-
-
     }
 
     private static Pattern mdnPattern = Pattern.compile("^([\\.\\d]+)\\.spid\\.e164\\.arpa$");
@@ -96,19 +71,22 @@ public class DnsProcessor implements Runnable {
         return extractMdn(name);
     }
 
+    private Integer extractCountryCode(String mdn) {
+        
+        PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+        PhoneNumber numberProto;
+        try {
+            numberProto = phoneUtil.parse("+" + mdn, "");
+            return numberProto.getCountryCode();
+        } catch (NumberParseException e) {
 
-    private static HashMap<String, String> mdnSpidMap = new HashMap<>();
-
-    private String lookupSpid(String mdn) {
-        String spid = mdnSpidMap.get(mdn);
-        if (spid == null) {
-            spid = "V047";
         }
-
-        return spid;
+        return null;
     }
 
-    private void sendSpidLookup(String mdn) {
+    private void sendSpidLookup(DNSMessage dnsMessageIn) {
+        String mdn = extractMdn(dnsMessageIn);
+        Integer cc = extractCountryCode(mdn);
 
         DNSMessage dnsMessageOut = new DNSMessage();
         String name = nameFromMdn(mdn);
@@ -118,7 +96,6 @@ public class DnsProcessor implements Runnable {
         dnsMessageOut.setRecursionDesired(true);
         dnsMessageOut.setId(getNewMessageId());
 
-
         try {
             byte[] buf = dnsMessageOut.toArray();
             InetAddress address = InetAddress.getByName(this.remoteHost);
@@ -126,7 +103,8 @@ public class DnsProcessor implements Runnable {
             DatagramPacket packetOut = new DatagramPacket(buf, buf.length, address, this.remotePort);
 
             responseListenerSocket.send(packetOut);
-            pendingQ.put(dnsMessageOut.getId(), packetIn);
+            MyMessage message = new MyMessage(dnsMessageIn, packetIn.getAddress(), packetIn.getPort(), mdn, cc);
+            pendingQ.put(dnsMessageOut.getId(), message);
         } catch (IOException e) {
             logger.error(e.getStackTrace().toString());
         }

@@ -1,6 +1,5 @@
-package simple;
+package dns;
 
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.Map;
 
@@ -23,7 +22,7 @@ public class Main implements CommandLineRunner {
 
         new Thread(dnsResponseListener).start();
         DatagramSocket responseSocket = dnsResponseListener.getSocket();
-        Map<Integer, DatagramPacket> pendQ = dnsResponseListener.getPendingQueue();
+        Map<Integer, MyMessage> pendQ = dnsResponseListener.getPendingQueue();
         dnsRequestListener.init(responseSocket, pendQ);
         new Thread(dnsRequestListener).start();
         DatagramSocket requestSocket = dnsRequestListener.getSocket();

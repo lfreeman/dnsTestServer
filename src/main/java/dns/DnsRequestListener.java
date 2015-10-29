@@ -1,4 +1,4 @@
-package simple;
+package dns;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -31,7 +31,7 @@ public class DnsRequestListener implements Runnable {
     private int remotePort;
 
     private DatagramSocket responseListenerSocket;
-    private Map<Integer, DatagramPacket> pendQ;
+    private Map<Integer, MyMessage> pendQ;
     private final Semaphore semaphore = new Semaphore(1);
 
     private final AtomicBoolean ready = new AtomicBoolean(false);
@@ -40,7 +40,8 @@ public class DnsRequestListener implements Runnable {
     public DnsRequestListener() {
         this.semaphore.acquireUninterruptibly();
     }
-    public void init(DatagramSocket responseListenerSocket, Map<Integer, DatagramPacket> pendQ) {
+
+    public void init(DatagramSocket responseListenerSocket, Map<Integer, MyMessage> pendQ) {
         this.responseListenerSocket = responseListenerSocket;
         this.pendQ = pendQ;
     }
@@ -49,6 +50,7 @@ public class DnsRequestListener implements Runnable {
     public void run() {
         try (DatagramSocket socket = new DatagramSocket(localPort)) {
             this.socket = socket;
+            ready.set(true);
             this.semaphore.release();
             while (true) {
                 byte[] buffer = new byte[bufferSize];
@@ -69,7 +71,7 @@ public class DnsRequestListener implements Runnable {
     }
 
     private void processRequest(DatagramSocket socket, DatagramPacket packetIn) {
-        this.service.execute(new DnsProcessor(socket, packetIn, responseListenerSocket, pendQ, remoteHost, remotePort));
+        this.service.execute(new DnsProcessor(packetIn, responseListenerSocket, pendQ, remoteHost, remotePort));
     }
 
     public DatagramSocket getSocket() {
