@@ -35,4 +35,10 @@ public class MyMessage {
         return this.cc;
     }
 
+    public String getMdn() {
+        return this.mdn;
+    }
+    
+    
+
 }

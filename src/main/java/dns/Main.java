@@ -28,5 +28,4 @@ public class Main implements CommandLineRunner {
         DatagramSocket requestSocket = dnsRequestListener.getSocket();
         dnsResponseListener.setRequestSocket(requestSocket);
     }
-
 }

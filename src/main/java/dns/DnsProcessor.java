@@ -22,10 +22,12 @@ import de.measite.minidns.Question;
 import de.measite.minidns.Record;
 import de.measite.minidns.Record.CLASS;
 import de.measite.minidns.Record.TYPE;
+import de.measite.minidns.record.ATTRSTRING;
 
 public class DnsProcessor implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(DnsProcessor.class);
 
+    private final DnsService dnsService;
     private final DatagramPacket packetIn;
     private String remoteHost;
     private int remotePort;
@@ -34,9 +36,9 @@ public class DnsProcessor implements Runnable {
     static private AtomicInteger messageId = new AtomicInteger(0);
     final private Map<Integer, MyMessage> pendingQ;
 
-
     public DnsProcessor(DatagramPacket packetIn, DatagramSocket responseListenerSocket, Map<Integer, MyMessage> pendingQ,
-            String remoteHost, int remotePort) {
+            String remoteHost, int remotePort, DnsService dnsService) {
+        this.dnsService = dnsService;
         this.packetIn = packetIn;
         this.responseListenerSocket = responseListenerSocket;
         this.pendingQ = pendingQ;
@@ -46,12 +48,7 @@ public class DnsProcessor implements Runnable {
 
     @Override
     public void run() {
-        try {
-            DNSMessage dnsMessageIn = DNSMessage.parse(packetIn.getData());
-            sendSpidLookup(dnsMessageIn);
-        } catch (IOException e) {
-            logger.error(e.getStackTrace().toString());
-        }
+        lookupSpid();
     }
 
     private static Pattern mdnPattern = Pattern.compile("^([\\.\\d]+)\\.spid\\.e164\\.arpa$");
@@ -72,7 +69,7 @@ public class DnsProcessor implements Runnable {
     }
 
     private Integer extractCountryCode(String mdn) {
-        
+
         PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
         PhoneNumber numberProto;
         try {
@@ -105,6 +102,26 @@ public class DnsProcessor implements Runnable {
             responseListenerSocket.send(packetOut);
             MyMessage message = new MyMessage(dnsMessageIn, packetIn.getAddress(), packetIn.getPort(), mdn, cc);
             pendingQ.put(dnsMessageOut.getId(), message);
+        } catch (IOException e) {
+            logger.error(e.getStackTrace().toString());
+        }
+    }
+
+    public void lookupSpid() {
+        try {
+            DNSMessage dnsMessageIn = DNSMessage.parse(packetIn.getData());
+            String mdn = extractMdn(dnsMessageIn);
+            Spid spid = this.dnsService.getCachedSpid(mdn);
+
+            if (spid == null || spid.isExpired()) {
+                sendSpidLookup(dnsMessageIn);
+                return;
+            }
+
+            String name = dnsMessageIn.getQuestions()[0].getName();
+            ATTRSTRING payloadData = new ATTRSTRING(spid.getSpid());
+            Record answer = new Record(name, Record.TYPE.ATTR_STRING, Record.CLASS.IN, 60L, payloadData, false);
+            this.dnsService.sendResponse(dnsMessageIn, packetIn.getAddress(), packetIn.getPort(), new Record[] {answer}, extractCountryCode(mdn));
         } catch (IOException e) {
             logger.error(e.getStackTrace().toString());
         }

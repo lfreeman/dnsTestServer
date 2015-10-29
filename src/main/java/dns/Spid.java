@@ -1,4 +1,4 @@
-package dns1;
+package dns;
 
 import java.io.Serializable;
 

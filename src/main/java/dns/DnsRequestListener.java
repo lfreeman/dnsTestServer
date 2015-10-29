@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -30,12 +31,16 @@ public class DnsRequestListener implements Runnable {
     @Value("${remotePort:1053}")
     private int remotePort;
 
+    @Autowired
+    private DnsService dnsService;
+
     private DatagramSocket responseListenerSocket;
     private Map<Integer, MyMessage> pendQ;
     private final Semaphore semaphore = new Semaphore(1);
 
     private final AtomicBoolean ready = new AtomicBoolean(false);
     private DatagramSocket socket;
+
 
     public DnsRequestListener() {
         this.semaphore.acquireUninterruptibly();
@@ -71,7 +76,7 @@ public class DnsRequestListener implements Runnable {
     }
 
     private void processRequest(DatagramSocket socket, DatagramPacket packetIn) {
-        this.service.execute(new DnsProcessor(packetIn, responseListenerSocket, pendQ, remoteHost, remotePort));
+        this.service.execute(new DnsProcessor(packetIn, responseListenerSocket, pendQ, remoteHost, remotePort, dnsService));
     }
 
     public DatagramSocket getSocket() {
