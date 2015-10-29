@@ -6,7 +6,7 @@ import org.springframework.boot.test.SpringApplicationConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import dns.DnsTestServerApplication;
+import dns1.DnsTestServerApplication;
 import io.vertx.core.ServiceHelper;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.VertxFactory;

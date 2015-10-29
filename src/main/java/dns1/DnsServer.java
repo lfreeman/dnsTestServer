@@ -1,10 +1,8 @@
-package dns;
+package dns1;
 
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.annotation.PostConstruct;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +46,7 @@ public class DnsServer {
     }
 
 
-    @PostConstruct
+    //@PostConstruct
     public void createServer() {
         DatagramSocketOptions options = new DatagramSocketOptions();
         options.setReceiveBufferSize(512);

@@ -1,14 +1,13 @@
-package dns;
+package dns1;
 
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import io.vertx.core.ServiceHelper;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.VertxFactory;
 
-@SpringBootApplication
+//@SpringBootApplication
 public class DnsTestServerApplication {
 
     public static void main(String[] args) {

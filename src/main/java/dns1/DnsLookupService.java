@@ -1,4 +1,4 @@
-package dns;
+package dns1;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,7 +85,7 @@ public class DnsLookupService {
     public void lookupSpidRemote(String mdn) {
 
         // Future future = Future.future();
-        DatagramSocket socket = vertx.createDatagramSocket(new DatagramSocketOptions());
+        final DatagramSocket socket = vertx.createDatagramSocket(new DatagramSocketOptions());
         socket.listen(6667, "0.0.0.0", new Handler<AsyncResult<DatagramSocket>>() {
             public void handle(AsyncResult<DatagramSocket> asyncResult) {
 

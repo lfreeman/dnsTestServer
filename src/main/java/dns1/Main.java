@@ -1,10 +1,9 @@
-package dns;
+package dns1;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Component;
 
-@Component
+//@Component
 public class Main implements CommandLineRunner {
 
     @Autowired
@@ -12,7 +11,7 @@ public class Main implements CommandLineRunner {
     
     @Override
     public void run(String... args) throws Exception {
-        udpServer.start();
+        //udpServer.start();
     }
 
 }
