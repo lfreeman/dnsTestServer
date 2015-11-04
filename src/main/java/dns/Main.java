@@ -1,7 +1,6 @@
 package dns;
 
 import java.net.DatagramSocket;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -22,8 +21,7 @@ public class Main implements CommandLineRunner {
 
         new Thread(dnsResponseListener).start();
         DatagramSocket responseSocket = dnsResponseListener.getSocket();
-        Map<Integer, MyMessage> pendQ = dnsResponseListener.getPendingQueue();
-        dnsRequestListener.init(responseSocket, pendQ);
+        dnsRequestListener.init(responseSocket);
         new Thread(dnsRequestListener).start();
         DatagramSocket requestSocket = dnsRequestListener.getSocket();
         dnsResponseListener.setRequestSocket(requestSocket);

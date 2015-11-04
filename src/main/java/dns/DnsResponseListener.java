@@ -5,9 +5,10 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.annotation.PostConstruct;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,10 +34,16 @@ public class DnsResponseListener implements Runnable {
     private final Semaphore semaphore = new Semaphore(1);
 
     private final AtomicBoolean ready = new AtomicBoolean(false);
-    private Map<Integer, MyMessage> pendingQ = new ConcurrentHashMap<>();
+    private Map<Integer, MyMessage> pendingQ;
 
     public DnsResponseListener() {
         semaphore.acquireUninterruptibly();
+    }
+    
+    
+    @PostConstruct
+    public void init() {
+        this.pendingQ = dnsService.getPendingQ();
     }
 
     @Override
@@ -94,10 +101,6 @@ public class DnsResponseListener implements Runnable {
         } catch (IOException e) {
             logger.error(e.getStackTrace().toString());
         }
-    }
-
-    public Map<Integer, MyMessage> getPendingQueue() {
-        return this.pendingQ;
     }
 
     public void setRequestSocket(DatagramSocket requestSocket) {

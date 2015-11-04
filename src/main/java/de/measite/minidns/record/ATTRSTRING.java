@@ -63,7 +63,7 @@ public class ATTRSTRING implements Data {
         byte[] b = new byte[length];
         dis.readFully(b);
         String result = new String(b);
-        spid = result.substring(6);
+        spid = result.substring(7);
 
     }
 

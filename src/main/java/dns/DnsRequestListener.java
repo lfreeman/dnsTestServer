@@ -10,6 +10,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,15 +42,20 @@ public class DnsRequestListener implements Runnable {
 
     private final AtomicBoolean ready = new AtomicBoolean(false);
     private DatagramSocket socket;
+    
+    
+    @PostConstruct
+    public void initPostConstruct() {
+        this.pendQ = dnsService.getPendingQ();
+    }
 
 
     public DnsRequestListener() {
         this.semaphore.acquireUninterruptibly();
     }
 
-    public void init(DatagramSocket responseListenerSocket, Map<Integer, MyMessage> pendQ) {
+    public void init(DatagramSocket responseListenerSocket) {
         this.responseListenerSocket = responseListenerSocket;
-        this.pendQ = pendQ;
     }
 
     @Override

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +49,7 @@ public class DnsService {
 
     private Map<String, Spid> spidMap;
 
+    private final Map<Integer, MyMessage> pendingQ = new ConcurrentHashMap<>();
 
     private Map<Integer, Long> countryCodeToDelay = new HashMap<>();
     private final ScheduledExecutorService delayService = Executors.newScheduledThreadPool(5);
@@ -143,5 +145,17 @@ public class DnsService {
         Spid spid = new Spid(mdn, spidStr, timeToLive);
         spidMap.put(mdn, spid);
         this.mapdb.commit();
+    }
+
+    public Map<Integer, MyMessage> getPendingQ() {
+        return this.pendingQ;
+    }
+    
+    public int getPendingQsize() {
+        return this.pendingQ.size();
+    }
+    
+    public int getCacheSize() {
+        return this.spidMap.size();
     }
 }
